@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Firebase SDKs -->
+  <script type="module">
+    // Import the functions you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+
+    // Your Firebase config (from firebase_options.dart → web section)
+    const firebaseConfig = {
+      apiKey: "AIzaSyBUMxmEfqiKYk3T66zf3UeVF-EWZSRrYRo",
+      authDomain: "safeeats-bd604.firebaseapp.com",
+      projectId: "safeeats-bd604",
+      storageBucket: "safeeats-bd604.firebasestorage.app",
+      messagingSenderId: "753848668770",
+      appId: "1:753848668770:web:e54b0b1136fcd1176a773b",
+      measurementId: "G-LPMK0C9C20"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+  </script>
+
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="safeeats1">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>safeeats1</title>
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
