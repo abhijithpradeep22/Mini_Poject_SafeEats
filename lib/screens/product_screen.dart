@@ -3,7 +3,14 @@ import '../services/open_food_facts_service.dart';
 
 class ProductScreen extends StatefulWidget {
   final String barcode;
-  ProductScreen({required this.barcode});
+  final List<String> userAllergies;
+  final List<String> userConditions;
+
+  ProductScreen({
+    required this.barcode,
+    required this.userAllergies,
+    required this.userConditions,
+  });
 
   @override
   _ProductScreenState createState() => _ProductScreenState();
@@ -27,6 +34,37 @@ class _ProductScreenState extends State<ProductScreen> {
     });
   }
 
+  List<String> evaluateIngredients(String ingredientsText, List<String> allergies) {
+    List<String> warnings = [];
+    final lowerIngredients = ingredientsText.toLowerCase();
+    for (var allergy in allergies) {
+      if (lowerIngredients.contains(allergy.toLowerCase())) {
+        warnings.add("⚠ Contains allergen: $allergy");
+      }
+    }
+    if (warnings.isEmpty) warnings.add("✅ No allergens detected");
+    return warnings;
+  }
+
+  List<String> evaluateHealth(Map<String, dynamic> product, List<String> conditions) {
+    List<String> warnings = [];
+    final nutriments = product['nutriments'] ?? {};
+    double sugar = (nutriments['sugars_100g'] ?? 0).toDouble();
+    double fat = (nutriments['fat_100g'] ?? 0).toDouble();
+    double saturates = (nutriments['saturated-fat_100g'] ?? 0).toDouble();
+
+    if (conditions.contains("diabetes") && sugar > 10) {
+      warnings.add("⚠ High sugar content may affect diabetes");
+    }
+    if (conditions.contains("cholesterol") && saturates > 5) {
+      warnings.add("⚠ High saturated fat may affect cholesterol");
+    }
+    if (conditions.contains("fatty_liver") && fat > 10) {
+      warnings.add("⚠ High fat content may affect fatty liver");
+    }
+    return warnings;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -46,14 +84,21 @@ class _ProductScreenState extends State<ProductScreen> {
             SizedBox(height: 8),
             Text("Brands: ${product!['brands'] ?? 'N/A'}"),
             SizedBox(height: 8),
-            Text(
-              "Ingredients: ${product!['ingredients_text'] ?? 'N/A'}",
-            ),
+            Text("Ingredients: ${product!['ingredients_text'] ?? 'N/A'}"),
             SizedBox(height: 16),
             Text(
-              "Allergens: ${product!['allergens'] ?? 'None'}",
-              style: TextStyle(color: Colors.red),
+              "Allergens & Warnings:",
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
+            SizedBox(height: 8),
+            ...evaluateIngredients(
+              product!['ingredients_text'] ?? '',
+              widget.userAllergies,
+            ).map((e) => Text(e, style: TextStyle(color: e.contains("⚠") ? Colors.red : Colors.green))),
+            ...evaluateHealth(
+              product!,
+              widget.userConditions,
+            ).map((e) => Text(e, style: TextStyle(color: Colors.red))),
             SizedBox(height: 16),
             Text(
               "Nutrition Info:",
