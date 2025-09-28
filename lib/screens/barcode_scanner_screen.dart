@@ -1,23 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'product_screen.dart';
+import '../models/user_goal.dart';
 
 class BarcodeScannerScreen extends StatefulWidget {
   final List<String> userAllergies;
   final List<String> userConditions;
+  final UserGoal userGoal;
 
   const BarcodeScannerScreen({
-    Key? key,
+    super.key,
     required this.userAllergies,
     required this.userConditions,
-  }) : super(key: key);
+    required this.userGoal,
+  });
 
   @override
-  _BarcodeScannerScreenState createState() => _BarcodeScannerScreenState();
+  BarcodeScannerScreenState createState() => BarcodeScannerScreenState();
 }
 
-class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
-  MobileScannerController cameraController = MobileScannerController();
+class BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
+  final MobileScannerController cameraController = MobileScannerController();
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +35,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
           final code = barcodes.first.rawValue;
           if (code == null) return;
 
-          // Navigate to ProductScreen with user profile
+          // Pass userGoal to ProductScreen
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -40,6 +43,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
                 barcode: code,
                 userAllergies: widget.userAllergies,
                 userConditions: widget.userConditions,
+                userGoal: widget.userGoal,
               ),
             ),
           );

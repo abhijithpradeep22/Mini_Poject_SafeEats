@@ -1,6 +1,11 @@
 import '../ingredient_database/ingredients_data.dart';
 
-List<String> evaluateIngredientsText(String text, List<String> userConditions) {
+List<String> evaluateIngredientsText(
+    String text,
+    List<String> userConditions,
+    String userGoal // "gain", "lose", "maintain"
+    ) {
+
   final warnings = <String>[];
   final lowerText = text.toLowerCase();
 
@@ -17,9 +22,18 @@ List<String> evaluateIngredientsText(String text, List<String> userConditions) {
       if (ingredient.affectsFattyLiver && userConditions.contains("fatty_liver")) {
         warnings.add("⚠ ${ingredient.name} may affect fatty liver");
       }
+
+      // Goal-based warnings
+      if (userGoal == "gain" && ingredient.affectsWeightGain) {
+        warnings.add("⚠ ${ingredient.name} may contribute to weight gain");
+      }
+      if (userGoal == "lose" && ingredient.affectsWeightLoss) {
+        warnings.add("⚠ ${ingredient.name} may hinder weight loss");
+      }
     }
   }
 
   if (warnings.isEmpty) warnings.add("✅ No harmful ingredients detected");
   return warnings;
 }
+

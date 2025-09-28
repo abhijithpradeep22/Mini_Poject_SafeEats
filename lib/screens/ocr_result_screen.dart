@@ -1,78 +1,65 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../ingredient_database/ingredients_data.dart';
+import '../models/user_goal.dart';
+
+/// Map allergens to keywords to detect derivatives
+const allergenMapping = {
+  "milk": ["milk", "butter", "cream", "cheese", "ghee", "yogurt"],
+  "egg": ["egg", "egg white", "egg yolk"],
+  "nuts": ["almond", "cashew", "walnut", "pistachio"],
+  "soy": ["soy", "soya", "soybean", "tofu"],
+  "gluten": ["wheat", "barley", "rye", "malt"],
+};
+
+/// Concise warning text mapping
+const conciseWarningText = {
+  "allergy": "⚠ May trigger allergy",
+  "diabetes": "⚠ May affect diabetes",
+  "cholesterol": "⚠ May affect cholesterol",
+  "fatty_liver": "⚠ May affect fatty liver",
+  "weight_loss": "⚠ May affect weight loss goal",
+  "weight_gain": "⚠ May affect weight gain goal",
+  "weight_maintain": "⚠ May affect weight maintenance",
+  "banned": "⚠ May contain banned ingredient",
+};
+
+extension StringCasingExtension on String {
+  String capitalize() => length > 0 ? '${this[0].toUpperCase()}${substring(1)}' : '';
+}
 
 class OcrResultScreen extends StatelessWidget {
   final String ocrText;
   final List<String> userAllergies;
   final List<String> userConditions;
+  final UserGoal userGoal;
   final File? imageFile;
 
   const OcrResultScreen({
-    Key? key,
+    super.key,
     required this.ocrText,
     required this.userAllergies,
     required this.userConditions,
+    required this.userGoal,
     this.imageFile,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("OCR Result")),
+      appBar: AppBar(title: const Text("Result")),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: FutureBuilder<List<String>>(
+        child: FutureBuilder<Map<String, List<String>>>(
           future: processOcrText(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            final warnings = snapshot.data ?? [];
-
-            // Build set of words that triggered warnings for highlighting
-            final warningWords = <String>{};
-            for (var ingredient in ingredientsDatabase) {
-              final nameLower = ingredient.name.toLowerCase();
-              if (ocrText.toLowerCase().contains(nameLower)) {
-                if (userAllergies.any((a) => a.toLowerCase() == nameLower) ||
-                    ingredient.banned ||
-                    (ingredient.affectsDiabetes && userConditions.contains("diabetes")) ||
-                    (ingredient.affectsCholesterol && userConditions.contains("cholesterol")) ||
-                    (ingredient.affectsFattyLiver && userConditions.contains("fatty_liver"))) {
-                  warningWords.add(nameLower);
-                }
-              }
-            }
-
-            // Numeric evaluation highlights
-            final sugarMatch = RegExp(r'sugar\s*[:=]?\s*(\d+(\.\d+)?)', caseSensitive: false).firstMatch(ocrText);
-            final fatMatch = RegExp(r'fat\s*[:=]?\s*(\d+(\.\d+)?)', caseSensitive: false).firstMatch(ocrText);
-            final saturatesMatch = RegExp(r'saturated[-\s]?fat\s*[:=]?\s*(\d+(\.\d+)?)', caseSensitive: false).firstMatch(ocrText);
-
-            if (sugarMatch != null && userConditions.contains("diabetes") && double.tryParse(sugarMatch.group(1)!)! > 10) {
-              warningWords.add('sugar');
-            }
-            if (saturatesMatch != null && userConditions.contains("cholesterol") && double.tryParse(saturatesMatch.group(1)!)! > 5) {
-              warningWords.add('saturated');
-            }
-            if (fatMatch != null && userConditions.contains("fatty_liver") && double.tryParse(fatMatch.group(1)!)! > 10) {
-              warningWords.add('fat');
-            }
-
-            // Split OCR text into words and highlight if they are in warningWords
-            final words = ocrText.split(RegExp(r'\s+'));
-            List<TextSpan> spans = words.map((word) {
-              final cleanWord = word.replaceAll(RegExp(r'[.,()]'), '').toLowerCase();
-              if (warningWords.contains(cleanWord)) {
-                return TextSpan(
-                  text: '$word ',
-                  style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                );
-              }
-              return TextSpan(text: '$word ', style: const TextStyle(color: Colors.black));
-            }).toList();
+            final data = snapshot.data ?? {};
+            final generalWarnings = data['general'] ?? [];
+            final detailedWarnings = data['detailed'] ?? [];
 
             return SingleChildScrollView(
               child: Column(
@@ -82,32 +69,76 @@ class OcrResultScreen extends StatelessWidget {
                     Image.file(imageFile!, height: 200, fit: BoxFit.cover),
                     const SizedBox(height: 16),
                   ],
-                  const Text("OCR Text:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Text("Ingredients:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 8),
-                  RichText(text: TextSpan(children: spans)),
+                  RichText(text: highlightText(ocrText)),
                   const SizedBox(height: 24),
                   const Text("Warnings:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 8),
-                  if (warnings.isEmpty)
+                  if (generalWarnings.isEmpty)
                     const Card(
                       color: Colors.green,
                       child: Padding(
                         padding: EdgeInsets.all(12),
-                        child: Text("No harmful ingredients detected ✅", style: TextStyle(color: Colors.white)),
+                        child: Text(
+                          "✅ No harmful ingredients detected",
+                          style: TextStyle(color: Colors.white),
+                        ),
                       ),
                     )
                   else
-                    Column(
-                      children: warnings
-                          .map((e) => Card(
-                        color: Colors.red,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Text(e, style: const TextStyle(color: Colors.white)),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: generalWarnings
+                          .map(
+                            (w) => Container(
+                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                          constraints: const BoxConstraints(maxWidth: 250),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            w,
+                            softWrap: true,
+                            style: const TextStyle(color: Colors.white, fontSize: 14),
+                          ),
                         ),
-                      ))
+                      )
                           .toList(),
                     ),
+                  const SizedBox(height: 16),
+                  if (detailedWarnings.isNotEmpty)
+                    GestureDetector(
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          builder: (_) {
+                            return Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: ListView(
+                                children: detailedWarnings
+                                    .map((w) => Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                  child: Text(w, style: const TextStyle(fontSize: 14)),
+                                ))
+                                    .toList(),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                      child: const Text(
+                        "Know More",
+                        style: TextStyle(
+                          color: Colors.yellow,
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+
                 ],
               ),
             );
@@ -117,48 +148,128 @@ class OcrResultScreen extends StatelessWidget {
     );
   }
 
-  // Main processing function
-  Future<List<String>> processOcrText() async {
-    final warnings = <String>[];
+  TextSpan highlightText(String text) {
+    final warningPhrases = <String>{};
+
+    for (var ingredient in ingredientsDatabase) {
+      warningPhrases.add(ingredient.name.toLowerCase());
+    }
+
+    for (var allergen in userAllergies) {
+      final keywords = allergenMapping[allergen.toLowerCase()] ?? [allergen.toLowerCase()];
+      warningPhrases.addAll(keywords);
+    }
+
+    warningPhrases.addAll(['sugar', 'fat', 'saturated fat']);
+
+    final spans = <TextSpan>[];
+    final lowerText = text.toLowerCase();
+    int currentIndex = 0;
+
+    while (currentIndex < text.length) {
+      RegExpMatch? nextMatch;
+
+      for (var phrase in warningPhrases) {
+        final matches = RegExp(RegExp.escape(phrase)).allMatches(lowerText).where((m) => m.start >= currentIndex);
+        final match = matches.isEmpty ? null : matches.first;
+        if (match != null && (nextMatch == null || match.start < nextMatch.start)) {
+          nextMatch = match;
+        }
+      }
+
+      if (nextMatch == null) {
+        spans.add(TextSpan(text: text.substring(currentIndex), style: const TextStyle(color: Colors.black)));
+        break;
+      }
+
+      if (nextMatch.start > currentIndex) {
+        spans.add(TextSpan(
+          text: text.substring(currentIndex, nextMatch.start),
+          style: const TextStyle(color: Colors.black),
+        ));
+      }
+
+      spans.add(TextSpan(
+        text: text.substring(nextMatch.start, nextMatch.end),
+        style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+      ));
+
+      currentIndex = nextMatch.end;
+    }
+
+    return TextSpan(children: spans);
+  }
+
+  Future<Map<String, List<String>>> processOcrText() async {
+    final generalWarnings = <String>[];
+    final detailedWarnings = <String>[];
     final textLower = ocrText.toLowerCase();
 
-    // Allergy warnings
     for (var allergen in userAllergies) {
-      if (textLower.contains(allergen.toLowerCase())) {
-        warnings.add("⚠ Contains allergen: $allergen");
+      final keywords = allergenMapping[allergen.toLowerCase()] ?? [allergen.toLowerCase()];
+      for (var keyword in keywords) {
+        if (textLower.contains(keyword)) {
+          detailedWarnings.add("⚠ Contains allergen: ${allergen.capitalize()} (found: $keyword)");
+          if (!generalWarnings.contains(conciseWarningText["allergy"])) {
+            generalWarnings.add(conciseWarningText["allergy"]!);
+          }
+        }
       }
     }
 
-    // Ingredient-based warnings
     for (var ingredient in ingredientsDatabase) {
       final nameLower = ingredient.name.toLowerCase();
       if (textLower.contains(nameLower)) {
-        if (ingredient.banned) warnings.add("⚠ ${ingredient.name} is banned in India");
+        if (ingredient.banned) {
+          detailedWarnings.add("⚠ ${ingredient.name} is banned in India");
+          if (!generalWarnings.contains(conciseWarningText["banned"])) {
+            generalWarnings.add(conciseWarningText["banned"]!);
+          }
+        }
         if (ingredient.affectsDiabetes && userConditions.contains("diabetes")) {
-          warnings.add("⚠ ${ingredient.name} may affect diabetes");
+          detailedWarnings.add("⚠ ${ingredient.name} may affect diabetes");
+          if (!generalWarnings.contains(conciseWarningText["diabetes"])) {
+            generalWarnings.add(conciseWarningText["diabetes"]!);
+          }
         }
         if (ingredient.affectsCholesterol && userConditions.contains("cholesterol")) {
-          warnings.add("⚠ ${ingredient.name} may affect cholesterol");
+          detailedWarnings.add("⚠ ${ingredient.name} may affect cholesterol");
+          if (!generalWarnings.contains(conciseWarningText["cholesterol"])) {
+            generalWarnings.add(conciseWarningText["cholesterol"]!);
+          }
         }
         if (ingredient.affectsFattyLiver && userConditions.contains("fatty_liver")) {
-          warnings.add("⚠ ${ingredient.name} may affect fatty liver");
+          detailedWarnings.add("⚠ ${ingredient.name} may affect fatty liver");
+          if (!generalWarnings.contains(conciseWarningText["fatty_liver"])) {
+            generalWarnings.add(conciseWarningText["fatty_liver"]!);
+          }
+        }
+        if (_affectsGoal(ingredient, userGoal)) {
+          final goalKey = userGoal == UserGoal.lose
+              ? "weight_loss"
+              : userGoal == UserGoal.gain
+              ? "weight_gain"
+              : "weight_maintain";
+          detailedWarnings.add("${ingredient.name}: ${goalWarningText(userGoal)}");
+          if (!generalWarnings.contains(conciseWarningText[goalKey])) {
+            generalWarnings.add(conciseWarningText[goalKey]!);
+          }
         }
       }
     }
 
-    // Numeric evaluation warnings
-    final numericWarnings = await evaluateHealthFromOcr(ocrText, userConditions);
+    final numericWarnings = await evaluateHealthFromOcr(ocrText, userConditions, userGoal);
     for (var w in numericWarnings) {
-      if (!warnings.contains(w)) warnings.add("⚠ $w");
+      detailedWarnings.add("⚠ $w");
+      if (!generalWarnings.contains("⚠ $w")) generalWarnings.add("⚠ $w");
     }
 
-    if (warnings.isEmpty) warnings.add("✅ No harmful ingredients detected");
+    if (generalWarnings.isEmpty) generalWarnings.add("✅ No harmful ingredients detected");
 
-    return warnings;
+    return {'general': generalWarnings, 'detailed': detailedWarnings};
   }
 
-  // Numeric evaluation
-  Future<List<String>> evaluateHealthFromOcr(String text, List<String> conditions) async {
+  Future<List<String>> evaluateHealthFromOcr(String text, List<String> conditions, UserGoal goal) async {
     final warnings = <String>[];
 
     final sugarMatch = RegExp(r'sugar\s*[:=]?\s*(\d+(\.\d+)?)', caseSensitive: false).firstMatch(text);
@@ -173,6 +284,30 @@ class OcrResultScreen extends StatelessWidget {
     if (conditions.contains("cholesterol") && saturates > 5) warnings.add("High saturated fat may affect cholesterol");
     if (conditions.contains("fatty_liver") && fat > 10) warnings.add("High fat may affect fatty liver");
 
+    if (goal == UserGoal.lose && (sugar > 10 || fat > 10)) warnings.add("May affect weight loss goal");
+    if (goal == UserGoal.gain && (sugar > 10 || fat > 10)) warnings.add("May affect weight gain goal");
+
     return warnings;
+  }
+
+  bool _affectsGoal(IngredientInfo ingredient, UserGoal goal) {
+    switch (goal) {
+      case UserGoal.gain:
+        return false;
+      case UserGoal.lose:
+      case UserGoal.maintain:
+        return ingredient.affectsDiabetes || ingredient.affectsFattyLiver || ingredient.affectsCholesterol;
+    }
+  }
+
+  String goalWarningText(UserGoal goal) {
+    switch (goal) {
+      case UserGoal.lose:
+        return "May affect weight loss goal";
+      case UserGoal.gain:
+        return "May affect weight gain goal";
+      case UserGoal.maintain:
+        return "May affect weight maintenance";
+    }
   }
 }

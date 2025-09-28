@@ -1,23 +1,26 @@
 import 'package:flutter/material.dart';
 import '../services/open_food_facts_service.dart';
+import '../models/user_goal.dart';
 
 class ProductScreen extends StatefulWidget {
   final String barcode;
   final List<String> userAllergies;
   final List<String> userConditions;
+  final UserGoal userGoal;
 
   const ProductScreen({
-    Key? key,
+    super.key,
     required this.barcode,
     required this.userAllergies,
     required this.userConditions,
-  }) : super(key: key);
+    required this.userGoal,
+  });
 
   @override
-  _ProductScreenState createState() => _ProductScreenState();
+  ProductScreenState createState() => ProductScreenState();
 }
 
-class _ProductScreenState extends State<ProductScreen> {
+class ProductScreenState extends State<ProductScreen> {
   Map<String, dynamic>? product;
   bool loading = true;
 
@@ -27,7 +30,7 @@ class _ProductScreenState extends State<ProductScreen> {
     fetchProduct();
   }
 
-  void fetchProduct() async {
+  Future<void> fetchProduct() async {
     final result = await OpenFoodFactsService.fetchProduct(widget.barcode);
     setState(() {
       product = result;
@@ -36,23 +39,26 @@ class _ProductScreenState extends State<ProductScreen> {
   }
 
   List<String> evaluateIngredients(String ingredientsText, List<String> allergies) {
-    List<String> warnings = [];
     final lowerIngredients = ingredientsText.toLowerCase();
+    final warnings = <String>[];
+
     for (var allergy in allergies) {
       if (lowerIngredients.contains(allergy.toLowerCase())) {
         warnings.add("⚠ Contains allergen: $allergy");
       }
     }
+
     if (warnings.isEmpty) warnings.add("✅ No allergens detected");
     return warnings;
   }
 
-  List<String> evaluateHealth(Map<String, dynamic> product, List<String> conditions) {
-    List<String> warnings = [];
+  List<String> evaluateHealth(Map<String, dynamic> product, List<String> conditions, UserGoal goal) {
     final nutriments = product['nutriments'] ?? {};
-    double sugar = (nutriments['sugars_100g'] ?? 0).toDouble();
-    double fat = (nutriments['fat_100g'] ?? 0).toDouble();
-    double saturates = (nutriments['saturated-fat_100g'] ?? 0).toDouble();
+    final sugar = (nutriments['sugars_100g'] ?? 0).toDouble();
+    final fat = (nutriments['fat_100g'] ?? 0).toDouble();
+    final saturates = (nutriments['saturated-fat_100g'] ?? 0).toDouble();
+
+    final warnings = <String>[];
 
     if (conditions.contains("diabetes") && sugar > 10) {
       warnings.add("⚠ High sugar content may affect diabetes");
@@ -63,6 +69,13 @@ class _ProductScreenState extends State<ProductScreen> {
     if (conditions.contains("fatty_liver") && fat > 10) {
       warnings.add("⚠ High fat content may affect fatty liver");
     }
+
+    if (goal == UserGoal.lose && (sugar > 10 || fat > 10)) {
+      warnings.add("⚠ May affect weight loss goal");
+    } else if (goal == UserGoal.gain && sugar < 5 && fat < 5) {
+      warnings.add("⚠ Low energy/fat content may not support weight gain");
+    }
+
     return warnings;
   }
 
@@ -117,7 +130,7 @@ class _ProductScreenState extends State<ProductScreen> {
                 child: Text(e, style: const TextStyle(color: Colors.white)),
               ),
             )),
-            ...evaluateHealth(product!, widget.userConditions)
+            ...evaluateHealth(product!, widget.userConditions, widget.userGoal)
                 .map((e) => Card(
               color: Colors.red,
               child: Padding(

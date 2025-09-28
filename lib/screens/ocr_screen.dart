@@ -3,28 +3,31 @@ import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 import 'ocr_result_screen.dart';
+import '../models/user_goal.dart';
 
 class OcrScreen extends StatefulWidget {
   final List<String> userAllergies;
   final List<String> userConditions;
+  final UserGoal userGoal;
 
   const OcrScreen({
-    Key? key,
+    super.key,
     required this.userAllergies,
     required this.userConditions,
-  }) : super(key: key);
+    required this.userGoal,
+  });
 
   @override
-  _OcrScreenState createState() => _OcrScreenState();
+  OcrScreenState createState() => OcrScreenState();
 }
 
-class _OcrScreenState extends State<OcrScreen> {
+class OcrScreenState extends State<OcrScreen> {
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickImage(ImageSource source) async {
     final pickedFile = await _picker.pickImage(source: source);
     if (pickedFile != null) {
-      File imageFile = File(pickedFile.path);
+      final imageFile = File(pickedFile.path);
       await _performOCR(imageFile);
     }
   }
@@ -34,12 +37,10 @@ class _OcrScreenState extends State<OcrScreen> {
     final inputImage = InputImage.fromFile(imageFile);
 
     final recognizedText = await textRecognizer.processImage(inputImage);
-
     textRecognizer.close();
 
     if (!mounted) return;
 
-    // Navigate directly to result screen with OCR text and image
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -47,6 +48,7 @@ class _OcrScreenState extends State<OcrScreen> {
           ocrText: recognizedText.text,
           userAllergies: widget.userAllergies,
           userConditions: widget.userConditions,
+          userGoal: widget.userGoal,
           imageFile: imageFile,
         ),
       ),
@@ -56,7 +58,7 @@ class _OcrScreenState extends State<OcrScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("OCR Scanner")),
+      appBar: AppBar(title: const Text("OCR Scanner"), backgroundColor: Colors.pink.shade600),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

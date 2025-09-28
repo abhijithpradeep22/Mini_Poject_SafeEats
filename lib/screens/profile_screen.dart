@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../main.dart'; // For navigating back to AuthScreen
 import 'barcode_scanner_screen.dart';
 import 'ocr_screen.dart';
+import '../main.dart'; // For AuthScreen
+import '../models/user_goal.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -14,6 +15,16 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final user = FirebaseAuth.instance.currentUser;
+
+  // Sign out helper to handle async safely
+  Future<void> _signOut() async {
+    await FirebaseAuth.instance.signOut();
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const AuthScreen()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,11 +37,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              Navigator.pushReplacement(
-                  context, MaterialPageRoute(builder: (_) => const AuthScreen()));
-            },
+            onPressed: _signOut,
           ),
         ],
       ),
@@ -45,16 +52,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-          var userData = snapshot.data!;
-          final allergies = (userData['allergies'] as List<dynamic>).cast<String>();
+
+          final userData = snapshot.data!;
+          final allergies =
+          (userData['allergies'] as List<dynamic>).cast<String>();
           final conditions =
-          (userData['medicalConditions'] as List<dynamic>).cast<String>();
+          (userData['medicalConditions'] as List<dynamic>)
+              .cast<String>();
+          final goalStr = userData['goal'] as String? ?? 'maintain';
+          final userGoal =
+          UserGoal.values.firstWhere((e) => e.name == goalStr);
 
           return Padding(
             padding: const EdgeInsets.all(20),
             child: ListView(
               children: [
-                // -------- User Info Card --------
+                // User Info Card
                 Card(
                   elevation: 5,
                   shape: RoundedRectangleBorder(
@@ -72,31 +85,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               color: Colors.pink),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          "Age: ${userData['age'] ?? '-'}",
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        Text(
-                          "Gender: ${userData['gender'] ?? '-'}",
-                          style: const TextStyle(fontSize: 16),
-                        ),
+                        Text("Age: ${userData['age'] ?? '-'}"),
+                        Text("Gender: ${userData['gender'] ?? '-'}"),
+                        Text("Goal: ${userGoal.name.capitalize()}"),
                         const Divider(height: 30),
-                        Text(
-                          "Allergies: ${allergies.join(', ')}",
-                          style: const TextStyle(fontSize: 16),
-                        ),
+                        Text("Allergies: ${allergies.join(', ')}"),
                         const SizedBox(height: 8),
-                        Text(
-                          "Health Conditions: ${conditions.join(', ')}",
-                          style: const TextStyle(fontSize: 16),
-                        ),
+                        Text("Health Conditions: ${conditions.join(', ')}"),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
 
-                // -------- Check Product Section --------
+                // Check Product Section
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -118,6 +120,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               builder: (_) => BarcodeScannerScreen(
                                 userAllergies: allergies,
                                 userConditions: conditions,
+                                userGoal: userGoal,
                               ),
                             ),
                           );
@@ -143,6 +146,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               builder: (_) => OcrScreen(
                                 userAllergies: allergies,
                                 userConditions: conditions,
+                                userGoal: userGoal,
                               ),
                             ),
                           );

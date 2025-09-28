@@ -4,6 +4,7 @@ import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'screens/profile_screen.dart';
+import '../models/user_goal.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,6 +62,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final allergiesController = TextEditingController();
   List<String> conditions = [];
   String gender = 'Male';
+  UserGoal? selectedGoal;
   bool isLogin = true;
   String message = "";
 
@@ -77,32 +79,35 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> submit() async {
     try {
       if (isLogin) {
-        // Login
+        // LOGIN
         await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: emailController.text.trim(),
           password: passwordController.text.trim(),
         );
+
+        if (!mounted) return;
         setState(() => message = "✅ Login successful!");
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const ProfileScreen()),
         );
       } else {
-        // Validate mandatory fields
+        // VALIDATE FIELDS
         if (nameController.text.isEmpty ||
             ageController.text.isEmpty ||
-            gender.isEmpty) {
-          setState(() => message = "❌ Name, Age, and Gender are required.");
+            gender.isEmpty ||
+            selectedGoal == null) {
+          setState(() => message = "❌ Name, Age, Gender and Goal are required.");
           return;
         }
 
-        // Register
+        // REGISTER
         final userCred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: emailController.text.trim(),
           password: passwordController.text.trim(),
         );
 
-        // Save user info in Firestore
+        // SAVE USER DATA TO FIRESTORE
         await FirebaseFirestore.instance
             .collection('users')
             .doc(userCred.user!.uid)
@@ -116,21 +121,24 @@ class _AuthScreenState extends State<AuthScreen> {
               .where((e) => e.isNotEmpty)
               .toList(),
           'medicalConditions': conditions,
-          'goals': [],
+          'goal': selectedGoal!.name,
         });
 
+        if (!mounted) return;
         setState(() {
           message = "✅ Registration successful! Please login.";
-          isLogin = true; // switch to login view
+          isLogin = true;
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => message = "❌ $e");
     }
   }
 
   Future<void> resetPassword() async {
     if (emailController.text.isEmpty) {
+      if (!mounted) return;
       setState(() => message = "❌ Enter your email first");
       return;
     }
@@ -138,8 +146,10 @@ class _AuthScreenState extends State<AuthScreen> {
       await FirebaseAuth.instance.sendPasswordResetEmail(
         email: emailController.text.trim(),
       );
+      if (!mounted) return;
       setState(() => message = "✅ Password reset email sent!");
     } catch (e) {
+      if (!mounted) return;
       setState(() => message = "❌ $e");
     }
   }
@@ -166,7 +176,7 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              "Your personalized health food tracker",
+              "Smart Ingredient Risk Analysis and Personal Diet Assistant",
               style: TextStyle(fontSize: 16, color: Colors.black54),
               textAlign: TextAlign.center,
             ),
@@ -181,6 +191,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
+                    // Email & Password
                     TextField(
                       controller: emailController,
                       decoration: const InputDecoration(
@@ -209,6 +220,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       ),
                     ],
 
+                    // REGISTRATION FIELDS
                     if (!isLogin) ...[
                       const SizedBox(height: 16),
                       TextField(
@@ -238,19 +250,94 @@ class _AuthScreenState extends State<AuthScreen> {
                           DropdownButton<String>(
                             value: gender,
                             items: <String>['Male', 'Female', 'Other']
-                                .map((String value) {
-                              return DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value),
-                              );
-                            }).toList(),
-                            onChanged: (String? val) {
-                              setState(() {
-                                gender = val!;
-                              });
+                                .map((val) => DropdownMenuItem(
+                              value: val,
+                              child: Text(val),
+                            ))
+                                .toList(),
+                            onChanged: (val) {
+                              setState(() => gender = val!);
                             },
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "Select Your Health Conditions:",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      Column(
+                        children: [
+                          CheckboxListTile(
+                            title: const Text("Diabetes"),
+                            value: conditions.contains("diabetes"),
+                            onChanged: (val) {
+                              setState(() {
+                                if (val!) {
+                                  conditions.add("diabetes");
+                                } else {
+                                  conditions.remove("diabetes");
+                                }
+                              });
+                            },
+                            controlAffinity: ListTileControlAffinity.leading,
+                            activeColor: Colors.pink,
+                          ),
+                          CheckboxListTile(
+                            title: const Text("High Cholesterol"),
+                            value: conditions.contains("cholesterol"),
+                            onChanged: (val) {
+                              setState(() {
+                                if (val!) {
+                                  conditions.add("cholesterol");
+                                } else {
+                                  conditions.remove("cholesterol");
+                                }
+                              });
+                            },
+                            controlAffinity: ListTileControlAffinity.leading,
+                            activeColor: Colors.pink,
+                          ),
+                          CheckboxListTile(
+                            title: const Text("Fatty Liver"),
+                            value: conditions.contains("fatty_liver"),
+                            onChanged: (val) {
+                              setState(() {
+                                if (val!) {
+                                  conditions.add("fatty_liver");
+                                } else {
+                                  conditions.remove("fatty_liver");
+                                }
+                              });
+                            },
+                            controlAffinity: ListTileControlAffinity.leading,
+                            activeColor: Colors.pink,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "Select Your Goal:",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      Column(
+                        children: UserGoal.values.map((goal) {
+                          return RadioListTile<UserGoal>(
+                            title: Text(goal.name.capitalize()),
+                            value: goal,
+                            groupValue: selectedGoal,
+                            onChanged: (val) {
+                              setState(() => selectedGoal = val);
+                            },
+                            activeColor: Colors.pink,
+                          );
+                        }).toList(),
                       ),
                       const SizedBox(height: 16),
                       TextField(
@@ -259,59 +346,6 @@ class _AuthScreenState extends State<AuthScreen> {
                           labelText: "Allergies (comma separated)",
                           prefixIcon: Icon(Icons.medical_services, color: Colors.pink),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          "Select Health Conditions:",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      CheckboxListTile(
-                        title: const Text("Diabetes"),
-                        value: conditions.contains("diabetes"),
-                        onChanged: (val) {
-                          setState(() {
-                            if (val!) {
-                              conditions.add("diabetes");
-                            } else {
-                              conditions.remove("diabetes");
-                            }
-                          });
-                        },
-                        controlAffinity: ListTileControlAffinity.leading,
-                        activeColor: Colors.pink,
-                      ),
-                      CheckboxListTile(
-                        title: const Text("High Cholesterol"),
-                        value: conditions.contains("cholesterol"),
-                        onChanged: (val) {
-                          setState(() {
-                            if (val!) {
-                              conditions.add("cholesterol");
-                            } else {
-                              conditions.remove("cholesterol");
-                            }
-                          });
-                        },
-                        controlAffinity: ListTileControlAffinity.leading,
-                        activeColor: Colors.pink,
-                      ),
-                      CheckboxListTile(
-                        title: const Text("Fatty Liver"),
-                        value: conditions.contains("fatty_liver"),
-                        onChanged: (val) {
-                          setState(() {
-                            if (val!) {
-                              conditions.add("fatty_liver");
-                            } else {
-                              conditions.remove("fatty_liver");
-                            }
-                          });
-                        },
-                        controlAffinity: ListTileControlAffinity.leading,
-                        activeColor: Colors.pink,
                       ),
                     ],
 
@@ -350,5 +384,13 @@ class _AuthScreenState extends State<AuthScreen> {
         ),
       ),
     );
+  }
+}
+
+// String extension for capitalizing goal names
+extension StringCasingExtension on String {
+  String capitalize() {
+    if (isEmpty) return '';
+    return '${this[0].toUpperCase()}${substring(1)}';
   }
 }
