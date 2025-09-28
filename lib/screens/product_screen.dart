@@ -6,11 +6,12 @@ class ProductScreen extends StatefulWidget {
   final List<String> userAllergies;
   final List<String> userConditions;
 
-  ProductScreen({
+  const ProductScreen({
+    Key? key,
     required this.barcode,
     required this.userAllergies,
     required this.userConditions,
-  });
+  }) : super(key: key);
 
   @override
   _ProductScreenState createState() => _ProductScreenState();
@@ -68,60 +69,93 @@ class _ProductScreenState extends State<ProductScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Product Info')),
+      appBar: AppBar(
+        title: const Text("Product Info"),
+        backgroundColor: Colors.pink.shade600,
+        elevation: 3,
+        centerTitle: true,
+      ),
       body: loading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : product != null
           ? SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              "Product Name: ${product!['product_name'] ?? 'N/A'}",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 3,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product!['product_name'] ?? 'N/A',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text("Brands: ${product!['brands'] ?? 'N/A'}"),
+                    const SizedBox(height: 8),
+                    Text("Ingredients: ${product!['ingredients_text'] ?? 'N/A'}"),
+                  ],
+                ),
+              ),
             ),
-            SizedBox(height: 8),
-            Text("Brands: ${product!['brands'] ?? 'N/A'}"),
-            SizedBox(height: 8),
-            Text("Ingredients: ${product!['ingredients_text'] ?? 'N/A'}"),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               "Allergens & Warnings:",
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.pink.shade700),
             ),
-            SizedBox(height: 8),
-            ...evaluateIngredients(
-              product!['ingredients_text'] ?? '',
-              widget.userAllergies,
-            ).map((e) => Text(e, style: TextStyle(color: e.contains("⚠") ? Colors.red : Colors.green))),
-            ...evaluateHealth(
-              product!,
-              widget.userConditions,
-            ).map((e) => Text(e, style: TextStyle(color: Colors.red))),
-            SizedBox(height: 16),
+            const SizedBox(height: 8),
+            ...evaluateIngredients(product!['ingredients_text'] ?? '', widget.userAllergies)
+                .map((e) => Card(
+              color: e.contains("⚠") ? Colors.red : Colors.green,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(e, style: const TextStyle(color: Colors.white)),
+              ),
+            )),
+            ...evaluateHealth(product!, widget.userConditions)
+                .map((e) => Card(
+              color: Colors.red,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(e, style: const TextStyle(color: Colors.white)),
+              ),
+            )),
+            const SizedBox(height: 16),
             Text(
               "Nutrition Info:",
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.pink.shade700),
             ),
+            const SizedBox(height: 8),
             product!['nutriments'] != null
-                ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Energy: ${product!['nutriments']['energy-kcal_100g'] ?? 'N/A'} kcal"),
-                Text("Fat: ${product!['nutriments']['fat_100g'] ?? 'N/A'} g"),
-                Text("Saturates: ${product!['nutriments']['saturated-fat_100g'] ?? 'N/A'} g"),
-                Text("Carbohydrates: ${product!['nutriments']['carbohydrates_100g'] ?? 'N/A'} g"),
-                Text("Sugars: ${product!['nutriments']['sugars_100g'] ?? 'N/A'} g"),
-                Text("Proteins: ${product!['nutriments']['proteins_100g'] ?? 'N/A'} g"),
-                Text("Salt: ${product!['nutriments']['salt_100g'] ?? 'N/A'} g"),
-              ],
+                ? Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 3,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Energy: ${product!['nutriments']['energy-kcal_100g'] ?? 'N/A'} kcal"),
+                    Text("Fat: ${product!['nutriments']['fat_100g'] ?? 'N/A'} g"),
+                    Text("Saturates: ${product!['nutriments']['saturated-fat_100g'] ?? 'N/A'} g"),
+                    Text("Carbohydrates: ${product!['nutriments']['carbohydrates_100g'] ?? 'N/A'} g"),
+                    Text("Sugars: ${product!['nutriments']['sugars_100g'] ?? 'N/A'} g"),
+                    Text("Proteins: ${product!['nutriments']['proteins_100g'] ?? 'N/A'} g"),
+                    Text("Salt: ${product!['nutriments']['salt_100g'] ?? 'N/A'} g"),
+                  ],
+                ),
+              ),
             )
-                : Text("No nutrition data available"),
+                : const Text("No nutrition data available"),
           ],
         ),
       )
-          : Center(child: Text("Product not found")),
+          : const Center(child: Text("Product not found")),
     );
   }
 }

@@ -1,25 +1,24 @@
-import 'screens/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'screens/profile_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const MyApp());
+  runApp(const SafeEatsApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class SafeEatsApp extends StatelessWidget {
+  const SafeEatsApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
       title: 'SafeEats',
       theme: ThemeData(
         primarySwatch: Colors.pink,
@@ -41,6 +40,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
+      debugShowCheckedModeBanner: false,
       home: const AuthScreen(),
     );
   }
@@ -50,67 +50,96 @@ class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
 
   @override
-  _AuthScreenState createState() => _AuthScreenState();
+  State<AuthScreen> createState() => _AuthScreenState();
 }
 
 class _AuthScreenState extends State<AuthScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+  final nameController = TextEditingController();
+  final ageController = TextEditingController();
   final allergiesController = TextEditingController();
   List<String> conditions = [];
+  String gender = 'Male';
+  bool isLogin = true;
   String message = "";
 
   @override
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
+    nameController.dispose();
+    ageController.dispose();
     allergiesController.dispose();
     super.dispose();
   }
 
-  Future<void> register() async {
+  Future<void> submit() async {
     try {
-      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
+      if (isLogin) {
+        // Login
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: emailController.text.trim(),
+          password: passwordController.text.trim(),
+        );
+        setState(() => message = "✅ Login successful!");
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const ProfileScreen()),
+        );
+      } else {
+        // Validate mandatory fields
+        if (nameController.text.isEmpty ||
+            ageController.text.isEmpty ||
+            gender.isEmpty) {
+          setState(() => message = "❌ Name, Age, and Gender are required.");
+          return;
+        }
 
-      final uid = userCredential.user!.uid;
+        // Register
+        final userCred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: emailController.text.trim(),
+          password: passwordController.text.trim(),
+        );
 
-      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'allergies': allergiesController.text
-            .split(',')
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList(),
-        'conditions': conditions,
-        'age': 0,
-        'goals': [],
-      });
+        // Save user info in Firestore
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userCred.user!.uid)
+            .set({
+          'name': nameController.text.trim(),
+          'age': int.tryParse(ageController.text.trim()) ?? 0,
+          'gender': gender,
+          'allergies': allergiesController.text
+              .split(',')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList(),
+          'medicalConditions': conditions,
+          'goals': [],
+        });
 
-      if (!mounted) return;
-      setState(() => message = "✅ Registered successfully!");
+        setState(() {
+          message = "✅ Registration successful! Please login.";
+          isLogin = true; // switch to login view
+        });
+      }
     } catch (e) {
-      if (!mounted) return;
       setState(() => message = "❌ $e");
     }
   }
 
-  Future<void> login() async {
+  Future<void> resetPassword() async {
+    if (emailController.text.isEmpty) {
+      setState(() => message = "❌ Enter your email first");
+      return;
+    }
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      await FirebaseAuth.instance.sendPasswordResetEmail(
         email: emailController.text.trim(),
-        password: passwordController.text.trim(),
       );
-
-      if (!mounted) return;
-      setState(() => message = "✅ Logged in successfully!");
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => ProfileScreen()),
-      );
+      setState(() => message = "✅ Password reset email sent!");
     } catch (e) {
-      if (!mounted) return;
       setState(() => message = "❌ $e");
     }
   }
@@ -119,54 +148,109 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.pink.shade50,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              // App Title
-              Text(
-                "SafeEats",
-                style: TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.pink.shade700,
-                ),
+      appBar: AppBar(
+        title: Text(isLogin ? "Login" : "Register"),
+        backgroundColor: Colors.pink.shade600,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Text(
+              "SafeEats",
+              style: TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+                color: Colors.pink.shade700,
               ),
-              const SizedBox(height: 12),
-              const Text(
-                "Your personalized health food tracker",
-                style: TextStyle(fontSize: 16, color: Colors.black54),
-                textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              "Your personalized health food tracker",
+              style: TextStyle(fontSize: 16, color: Colors.black54),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 30),
+            Card(
+              color: Colors.white,
+              elevation: 5,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-              const SizedBox(height: 30),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: emailController,
+                      decoration: const InputDecoration(
+                        labelText: "Email",
+                        prefixIcon: Icon(Icons.email, color: Colors.pink),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: passwordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: "Password",
+                        prefixIcon: Icon(Icons.lock, color: Colors.pink),
+                      ),
+                    ),
 
-              // Card with inputs
-              Card(
-                color: Colors.white,
-                elevation: 5,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
+                    if (isLogin) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: resetPassword,
+                          child: const Text("Forgot Password?"),
+                        ),
+                      ),
+                    ],
+
+                    if (!isLogin) ...[
+                      const SizedBox(height: 16),
                       TextField(
-                        controller: emailController,
+                        controller: nameController,
                         decoration: const InputDecoration(
-                          labelText: "Email",
-                          prefixIcon: Icon(Icons.email, color: Colors.pink),
+                          labelText: "Name",
+                          prefixIcon: Icon(Icons.person, color: Colors.pink),
                         ),
                       ),
                       const SizedBox(height: 16),
                       TextField(
-                        controller: passwordController,
-                        obscureText: true,
+                        controller: ageController,
+                        keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
-                          labelText: "Password",
-                          prefixIcon: Icon(Icons.lock, color: Colors.pink),
+                          labelText: "Age",
+                          prefixIcon: Icon(Icons.calendar_today, color: Colors.pink),
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          const Text(
+                            "Gender: ",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(width: 16),
+                          DropdownButton<String>(
+                            value: gender,
+                            items: <String>['Male', 'Female', 'Other']
+                                .map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              );
+                            }).toList(),
+                            onChanged: (String? val) {
+                              setState(() {
+                                gender = val!;
+                              });
+                            },
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
                       TextField(
@@ -177,8 +261,6 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-
-                      // Health Conditions
                       const Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
@@ -231,43 +313,40 @@ class _AuthScreenState extends State<AuthScreen> {
                         controlAffinity: ListTileControlAffinity.leading,
                         activeColor: Colors.pink,
                       ),
-
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: register,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.pink.shade600,
-                              ),
-                              child: const Text("Register"),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: login,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.pink.shade400,
-                              ),
-                              child: const Text("Login"),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        message,
-                        style: const TextStyle(color: Colors.blue),
-                        textAlign: TextAlign.center,
-                      ),
                     ],
-                  ),
+
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: submit,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.pink.shade600,
+                            ),
+                            child: Text(isLogin ? "Login" : "Register"),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    TextButton(
+                      onPressed: () => setState(() => isLogin = !isLogin),
+                      child: Text(isLogin
+                          ? "Don't have an account? Register"
+                          : "Already registered? Login"),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      message,
+                      style: const TextStyle(color: Colors.blue),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
