@@ -3,13 +3,58 @@ import 'package:flutter/material.dart';
 import '../ingredient_database/ingredients_data.dart';
 import '../models/user_goal.dart';
 
-/// Map allergens to keywords to detect derivatives
+/// Expanded allergen mapping with detailed variants
 const allergenMapping = {
-  "milk": ["milk", "butter", "cream", "cheese", "ghee", "yogurt"],
-  "egg": ["egg", "egg white", "egg yolk"],
-  "nuts": ["almond", "cashew", "walnut", "pistachio"],
-  "soy": ["soy", "soya", "soybean", "tofu"],
-  "gluten": ["wheat", "barley", "rye", "malt"],
+  "milk": [
+    "milk", "butter", "cream", "cheese", "ghee", "yogurt",
+    "casein", "caseinate", "whey", "lactose", "milk powder",
+    "evaporated milk", "condensed milk", "dry milk solids"
+  ],
+  "egg": [
+    "egg", "egg white", "egg yolk", "albumin", "ovalbumin",
+    "lysozyme", "globulin", "egg powder", "dried egg", "egg solids"
+  ],
+  "nuts": [
+    "almond", "cashew", "walnut", "pistachio", "pecan", "hazelnut",
+    "macadamia", "brazil nut", "pine nut", "nut oil", "nut butter",
+    "nut paste", "nut flour", "nut meal"
+  ],
+  "soy": [
+    "soy", "soya", "soybean", "tofu", "soy protein", "soy protein isolate",
+    "soy protein concentrate", "soy flour", "soy lecithin", "edamame",
+    "miso", "tempeh", "natto", "soy sauce", "tamari", "textured vegetable protein"
+  ],
+  "gluten": [
+    "wheat", "barley", "rye", "malt", "spelt", "kamut", "triticale",
+    "semolina", "bulgur", "farina", "graham flour", "wheat germ",
+    "wheat bran", "malt extract", "brewer's yeast"
+  ],
+  "peanuts": [
+    "peanut", "groundnut", "arachis oil", "peanut butter",
+    "peanut flour", "peanut protein", "boiled peanuts"
+  ],
+  "shellfish": [
+    "shrimp", "prawn", "crab", "lobster", "crayfish", "cockle",
+    "clams", "mussels", "oysters", "scallops"
+  ],
+  "fish": [
+    "salmon", "tuna", "cod", "haddock", "anchovy", "sardine",
+    "trout", "bass", "pollock", "halibut", "fish oil", "fish sauce"
+  ],
+  "sesame": [
+    "sesame", "tahini", "sesame oil", "sesame seeds", "gingelly", "benne"
+  ],
+  "mustard": [
+    "mustard", "mustard seeds", "mustard oil", "yellow mustard",
+    "brown mustard", "mustard powder"
+  ],
+  "celery": [
+    "celery", "celeriac", "celery seed", "celery salt", "celery powder"
+  ],
+  "sulfites": [
+    "sulfite", "sulphite", "sodium bisulfite", "sodium metabisulfite",
+    "potassium bisulfite", "potassium metabisulfite", "sulfur dioxide"
+  ]
 };
 
 /// Concise warning text mapping
@@ -105,8 +150,7 @@ class OcrResultScreen extends StatelessWidget {
                             style: const TextStyle(color: Colors.white, fontSize: 14),
                           ),
                         ),
-                      )
-                          .toList(),
+                      ).toList(),
                     ),
                   const SizedBox(height: 16),
                   if (detailedWarnings.isNotEmpty)
@@ -138,7 +182,6 @@ class OcrResultScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-
                 ],
               ),
             );
@@ -205,6 +248,7 @@ class OcrResultScreen extends StatelessWidget {
     final detailedWarnings = <String>[];
     final textLower = ocrText.toLowerCase();
 
+    // --- ALLERGEN DETECTION ---
     for (var allergen in userAllergies) {
       final keywords = allergenMapping[allergen.toLowerCase()] ?? [allergen.toLowerCase()];
       for (var keyword in keywords) {
@@ -217,6 +261,7 @@ class OcrResultScreen extends StatelessWidget {
       }
     }
 
+    // --- INGREDIENT / CONDITION DETECTION ---
     for (var ingredient in ingredientsDatabase) {
       final nameLower = ingredient.name.toLowerCase();
       if (textLower.contains(nameLower)) {
@@ -258,6 +303,7 @@ class OcrResultScreen extends StatelessWidget {
       }
     }
 
+    // --- NUMERIC NUTRITION WARNINGS ---
     final numericWarnings = await evaluateHealthFromOcr(ocrText, userConditions, userGoal);
     for (var w in numericWarnings) {
       detailedWarnings.add("⚠ $w");

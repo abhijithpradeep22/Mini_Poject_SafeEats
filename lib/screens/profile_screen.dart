@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'barcode_scanner_screen.dart';
 import 'ocr_screen.dart';
 import '../main.dart'; // For AuthScreen
-import '../models/user_goal.dart';
+import '../models/user_goal.dart'; // ✅ Use only this
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -16,7 +16,6 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final user = FirebaseAuth.instance.currentUser;
 
-  // Sign out helper to handle async safely
   Future<void> _signOut() async {
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
@@ -59,9 +58,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final conditions =
           (userData['medicalConditions'] as List<dynamic>)
               .cast<String>();
-          final goalStr = userData['goal'] as String? ?? 'maintain';
-          final userGoal =
-          UserGoal.values.firstWhere((e) => e.name == goalStr);
+          final goalStr = userData['goal'] as String? ?? 'Maintain Weight';
+          final userGoal = UserGoalExtension.fromString(goalStr);
 
           return Padding(
             padding: const EdgeInsets.all(20),
@@ -87,7 +85,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 8),
                         Text("Age: ${userData['age'] ?? '-'}"),
                         Text("Gender: ${userData['gender'] ?? '-'}"),
-                        Text("Goal: ${userGoal.name.capitalize()}"),
+                        Text("Goal: ${userGoal.displayName}"),
                         const Divider(height: 30),
                         Text("Allergies: ${allergies.join(', ')}"),
                         const SizedBox(height: 8),
@@ -108,11 +106,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: ListTile(
-                        leading: const Icon(Icons.qr_code_scanner,
-                            color: Colors.pink),
+                        leading:
+                        const Icon(Icons.qr_code_scanner, color: Colors.pink),
                         title: const Text('Scan Barcode'),
-                        trailing:
-                        const Icon(Icons.arrow_forward_ios, size: 16),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                         onTap: () {
                           Navigator.push(
                             context,
@@ -137,8 +134,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         leading:
                         const Icon(Icons.camera_alt, color: Colors.pink),
                         title: const Text('Food Label Scanner'),
-                        trailing:
-                        const Icon(Icons.arrow_forward_ios, size: 16),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                         onTap: () {
                           Navigator.push(
                             context,

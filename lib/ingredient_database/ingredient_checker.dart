@@ -11,8 +11,17 @@ List<String> evaluateIngredientsText(
 
   for (var ingredient in ingredientsDatabase) {
     final name = ingredient.name.toLowerCase();
-    if (lowerText.contains(name)) {
-      if (ingredient.banned) warnings.add("⚠ ${ingredient.name} is banned in India");
+
+    // Regex with word boundaries to avoid partial matches
+    final regex = RegExp(r'\b' + RegExp.escape(name) + r'\b');
+    if (regex.hasMatch(lowerText)) {
+
+      // Banned ingredient
+      if (ingredient.banned) {
+        warnings.add("⚠ ${ingredient.name} is banned in India");
+      }
+
+      // Condition-based warnings
       if (ingredient.affectsDiabetes && userConditions.contains("diabetes")) {
         warnings.add("⚠ ${ingredient.name} may affect diabetes");
       }
@@ -33,7 +42,20 @@ List<String> evaluateIngredientsText(
     }
   }
 
+  // Generic oils check for cholesterol & weight gain
+  final oilRegex = RegExp(r'\b(?:oil|vegetable oil|palm oil|coconut oil|sunflower oil|canola oil|hydrogenated oil|rapeseed oil|corn oil|soybean oil)\b', caseSensitive: false);
+  if (oilRegex.hasMatch(lowerText)) {
+    if (userConditions.contains("cholesterol")) {
+      warnings.add("⚠ Oil content may affect cholesterol");
+    }
+    if (userGoal == "gain") {
+      warnings.add("⚠ Oil content may contribute to weight gain");
+    }
+    if (userGoal == "lose") {
+      warnings.add("⚠ Oil content may hinder weight loss");
+    }
+  }
+
   if (warnings.isEmpty) warnings.add("✅ No harmful ingredients detected");
   return warnings;
 }
-

@@ -121,20 +121,45 @@ class _AuthScreenState extends State<AuthScreen> {
               .where((e) => e.isNotEmpty)
               .toList(),
           'medicalConditions': conditions,
-          'goal': selectedGoal!.name,
+          'goal': selectedGoal!.displayName,
         });
 
         if (!mounted) return;
-        setState(() {
-          message = "✅ Registration successful! Please login.";
-          isLogin = true;
-        });
+
+        // Show success dialog and reset fields
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text("Registration Successful"),
+            content: const Text("✅ Registration successful! Please login."),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // close dialog
+                  setState(() {
+                    isLogin = true; // switch to login page
+                    // Clear all registration fields
+                    nameController.clear();
+                    ageController.clear();
+                    allergiesController.clear();
+                    conditions.clear();
+                    selectedGoal = null;
+                    gender = 'Male';
+                    message = "";
+                  });
+                },
+                child: const Text("OK"),
+              ),
+            ],
+          ),
+        );
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => message = "❌ $e");
     }
   }
+
 
   Future<void> resetPassword() async {
     if (emailController.text.isEmpty) {
@@ -159,9 +184,17 @@ class _AuthScreenState extends State<AuthScreen> {
     return Scaffold(
       backgroundColor: Colors.pink.shade50,
       appBar: AppBar(
-        title: Text(isLogin ? "Login" : "Register"),
-        backgroundColor: Colors.pink.shade600,
+        title: Text(
+          "Welcome",
+          style: TextStyle(
+            color: Colors.pink.shade100,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: Colors.pink.shade50,
+        elevation: 0,
       ),
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
